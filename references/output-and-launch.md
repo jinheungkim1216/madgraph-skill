@@ -127,6 +127,79 @@ Different runs can have different `set` blocks; the banner of each run records w
 
 Never `output` into repo root or into an already-existing unrelated directory — MG writes dozens of files at the target path.
 
+## NLO launch flow
+
+When the generated process carries an NLO bracket (`[QCD]`, etc.), MG uses the aMC@NLO template — `output` auto-detects this and does not need an explicit mode argument (just `output <dir>`, no `madevent`). The `launch` prompt set is different from LO:
+
+```
+Which switches would you like to change?
+  1. Type of perturbative computation   order    = NLO
+  2. No MC@[N]LO matching / event gen   fixed_order = ON | OFF
+  3. Shower the generated events        shower   = OFF | PYTHIA8 | HERWIGPP | ...
+  4. Decay onshell particles            madspin  = OFF | ON
+  5. Add weights to events              reweight = OFF | ON
+  6. Run MadAnalysis5 on the events     madanalysis = OFF | ON
+```
+
+Convenient shortcuts (one-word lines inside the launch block):
+
+| shortcut | effect |
+|---|---|
+| `nlo` | order=NLO, fixed_order=ON, shower=OFF → **parton-level NLO** (v1 target) |
+| `lo` | order=LO, fixed_order=ON, shower=OFF → LO equivalent path through aMC@NLO template |
+| `aMC@NLO` | order=NLO, fixed_order=OFF, shower=ON → NLO+PS matching (needs pythia8) |
+| `noshower` | order=NLO, fixed_order=OFF, shower=OFF → produce NLO-matched LHE events without running the shower |
+| `aMC@LO` | order=LO, fixed_order=OFF, shower=ON |
+
+### Script-form for fixed-order NLO (v1 target)
+
+```
+launch <WORK_DIR>
+fixed_order=ON
+shower=OFF
+madspin=OFF
+reweight=OFF
+madanalysis=OFF
+set nevents 10000
+set req_acc -1
+set ebeam1 6500
+set ebeam2 6500
+0
+```
+
+Explicit switches are more portable than shortcuts across MG versions.
+
+### NLO run_XX directory differences
+
+NLO writes more/different files than LO:
+
+```
+Events/run_XX/
+├── <run_tag>_banner.txt          # run_card + param_card (NO xsec in NLO banner)
+├── summary.txt                   # ★ NLO xsec + scale envelope live HERE
+├── MADatNLO.HwU                  # HwU histogram data
+├── MADatNLO.ps / .pdf            # auto-generated histogram plots
+├── MADatNLO.gnuplot              # data + script for gnuplot
+├── res_0.txt / res_1.txt         # raw integration results per channel
+├── alllogs_*.html                # verbose per-subprocess logs
+├── RunMaterial.tar.gz            # Fortran sources snapshot
+└── inputs/                       # ← written by run_mg.py
+    ├── script.mg5
+    └── run_manifest.yaml
+```
+
+Key practical differences:
+- **No `unweighted_events.lhe.gz`** in pure fixed-order mode — events are not unweighted.
+- **`summary.txt` is the xsec source** for NLO. `runs.py` reads it automatically and flags `order: NLO`.
+- **Automatic histograms**: MG produces `MADatNLO.{HwU,ps,pdf}` with basic kinematic plots. Not parsed by the skill but available on disk.
+
+### NLO time and resource notes
+
+- **First-run compilation**: NLO auto-installs `Ninja`, `Collier`, optionally `CutTools` into `$MG5_HOME/HEPTools/`. First run is slow (~minutes). Subsequent runs reuse the libraries.
+- **ccache interaction**: If ccache is enabled and its cache dir is read-only (sandbox cases), NLO compilation fails. Export `CCACHE_DISABLE=1` to work around.
+- **Integration time**: Fixed-order NLO typically takes 5–30× longer than equivalent LO. Start with low stats (e.g. `req_acc=0.05` or `nevents=1000`) for quick checks.
+- **`--timeout`** on `run_mg.py`: set generously for NLO (e.g. `--timeout 1800`).
+
 ## Advanced launch flags (not used by this skill)
 
 `launch -f` (force defaults) and `launch -i <tag>` (interactive) exist but complicate scripting. `run_mg.py` always uses plain `launch <dir>` and drives the prompts via the script's lines.

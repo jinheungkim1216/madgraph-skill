@@ -6,6 +6,8 @@ Do **not** hand-edit `run_card.dat` — drive everything through `set`. The arch
 
 The default `run_card.dat` only shows the most-common keys. To see the full set inside MG, type `update to_full` at the interactive prompt (or `help set`).
 
+**LO vs NLO run_card**: MG ships two templates (`Template/LO/Cards/` and `Template/NLO/Cards/`). Most keys below apply to both; NLO-specific keys are grouped in the [NLO-only](#nlo-only-keys) section at the end.
+
 ## Essentials
 
 | key | default | meaning |
@@ -218,3 +220,78 @@ set systematics_arguments ['--mur=0.5,1,2', '--muf=0.5,1,2']
 - Type mismatch (string where a number is expected, or vice versa) → halt.
 
 For the full key list including rare options, run MG interactively and type `update to_full` — it rewrites `run_card.dat` with every knob exposed.
+
+## NLO-only keys
+
+Written to `run_card.dat` only when the process has an NLO bracket (`[QCD]` etc.). Many keys overlap with LO (`nevents`, `ebeam1/2`, `ptj`, `etaj`, `pdlabel`, `lhaid`, …); the keys below are additions or have NLO-specific semantics.
+
+### Integration and accuracy
+
+| key | default | meaning |
+|---|---|---|
+| `req_acc` | `-1` | Required relative accuracy on the NLO xsec. `-1` → auto-derive from `nevents`. Fixed-order xsec calculation keeps refining until this is met. Lowering below `-1` auto-default (e.g. `0.01`) → more integration time, lower MC error. |
+| `npoints_fo` | `10000` | Points per iteration in fixed-order integration. Rarely touched. |
+| `niters_fo` | `6` | Number of integration iterations. Rarely touched. |
+| `folding` | `1,1,1` | Folding parameters for the FKS subtraction variables (ξᵢ, yᵢⱼ, φᵢ). Defaults are fine unless debugging negative-weight events. |
+
+### Parton shower matching (MC@NLO)
+
+Used only when `fixed_order=OFF` (out of v1 scope for event generation, but the keys persist in the card).
+
+| key | default | meaning |
+|---|---|---|
+| `parton_shower` | `HERWIGPP` | Which PS the NLO subtraction terms target. Options: `HERWIG6`, `HERWIGPP`, `PYTHIA6Q`, `PYTHIA6PT`, `PYTHIA8`. Must match the shower you plan to run. |
+| `shower_scale_factor` | `1.0` | Multiply default shower-starting scale. |
+| `mcatnlo_delta` | `False` | Use MC@NLO-Δ matching (arXiv:2002.12716). Requires Pythia 8.309+. |
+| `ickkw` | `0` | Multi-jet NLO merging: `0`=none, `3`=FxFx, `4`=UNLOPS, `-1`=NNLL+NLO jet-veto. v1 supports `0` only. |
+
+### Scales and PDF reweighting
+
+NLO uses its own scale keys (`muR_ref_fixed`, `muF_ref_fixed`) instead of LO's `scale` / `dsqrt_q2fact*`.
+
+| key | default | meaning |
+|---|---|---|
+| `muR_ref_fixed` | `91.188` | Fixed renormalization reference scale (GeV), when `fixed_ren_scale=True`. |
+| `muF_ref_fixed` | `91.188` | Fixed factorization reference scale (GeV), when `fixed_fac_scale=True`. |
+| `muR_over_ref` | `1.0` | Ratio of current μ_R over the reference — scan-friendly. |
+| `muF_over_ref` | `1.0` | Ratio of current μ_F over the reference. |
+| `dynamical_scale_choice` | `[-1]` | List (NLO can carry multiple for reweighting). `-1`=HT/2, `10`=total transverse mass, etc. Additional choices beyond the first are included as LHE reweights. |
+| `rw_rscale` | `[1.0, 2.0, 0.5]` | μ_R factors to include as on-the-fly reweights. |
+| `rw_fscale` | `[1.0, 2.0, 0.5]` | μ_F factors. |
+| `reweight_scale` | `[True]` | Per-dynamical-choice booleans — which scale variations to run. |
+| `reweight_pdf` | `[False]` | Per-PDF booleans — which sets to compute PDF uncertainties for. |
+| `store_rwgt_info` | `False` | Embed reweight metadata into the LHE for later off-line use. |
+
+### FastJet (mandatory at NLO)
+
+NLO has IR divergences canceling between real and virtual; jet clustering must be defined. LO treats these as optional cuts.
+
+| key | default | meaning |
+|---|---|---|
+| `jetalgo` | `-1` | FastJet algorithm: `1`=kT, `0`=C/A, `-1`=anti-kT. Anti-kT is standard at LHC. |
+| `jetradius` | `0.4` | Jet radius R. LHC convention: 0.4 for most, 0.8 for boosted. |
+
+### Lepton / photon NLO extras
+
+| key | default | meaning |
+|---|---|---|
+| `drll` / `drll_sf` | `0.4` / `0.4` | Min ΔR between opp-sign leptons / opp-sign same-flavor leptons. |
+| `mll` / `mll_sf` | `30` / `30` | Min m(ℓ⁺ℓ⁻) / same-flavor variant. |
+| `gamma_is_j` | `False` | Cluster photons with jets (if False, photons go through isolation). |
+| `Rphreco` | `0.1` | Fermion–photon recombination radius. `0` = disabled. |
+| `etaphreco` | `-1` | Max \|η\| for photons eligible for recombination. |
+| `lepphreco` / `quarkphreco` | `True` / `True` | Whether to recombine photons with leptons / quarks. |
+
+### Frixione photon isolation (NLO form)
+
+| key | default | meaning |
+|---|---|---|
+| `ptgmin` | `0` | Min photon pT. `0` → all photon cuts off. |
+| `etagamma` | `-1` | Max \|η\| for photons. |
+| `R0gamma` | `0.4` | Isolation cone radius. |
+| `xn` | `1` | Frixione profile exponent (eq. 3.4 of hep-ph/9801442). |
+| `epsgamma` | `1.0` | Energy-fraction parameter. |
+
+### `fixed_order` interactive switch (launch, not run_card)
+
+Not a `run_card` key — it's a `launch` mode flag. `fixed_order=ON` → skip MC matching, produce only the NLO fixed-order xsec + histograms. This is what v1 supports. `fixed_order=OFF` → enables MC@NLO event generation path (requires `parton_shower` target and pythia8 install).

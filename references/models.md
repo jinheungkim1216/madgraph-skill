@@ -9,7 +9,7 @@ Confirmed present in `$MG5_HOME/models/`:
 | name | purpose | when to use |
 |---|---|---|
 | `sm` | Standard Model, default restriction. First two quark generations massless; b, t, leptons and gauge bosons keep PDG masses. | Default for any tree-level SM process. |
-| `loop_sm` | SM extended to support loop amplitudes. | **Required** for loop-induced LO processes (`[noborn=QCD]`) like `g g > h`. Slightly slower to load but functionally equivalent to `sm` at tree level. |
+| `loop_sm` | SM extended to support loop amplitudes. | **Required** for loop-induced LO processes (`[noborn=QCD]`) like `g g > h` **and for fixed-order NLO QCD** (`[QCD]`, `[real=QCD]`, `[virt=QCD]`). Slightly slower to load but functionally equivalent to `sm` at tree level. |
 | `MSSM_SLHA2` | Minimal SUSY, SLHA2 conventions. | MSSM studies. |
 | `hgg_plugin` | Hgg effective coupling plugin. | Niche. |
 | `taudecay_UFO` | τ decay model. | Used with MadSpin; skip in v1. |
@@ -131,6 +131,8 @@ To include b in jets: `define p = g u c d s b u~ c~ d~ s~ b~` before `generate`.
 | LHC tree-level SM (ttbar, DY, dijet, VBF, VH, …) | `sm` |
 | Above but faster and b initial state irrelevant | `sm-no_b_mass` |
 | `g g > h` and similar loop-induced at LO | `loop_sm` + `[noborn=QCD]` |
+| Fixed-order NLO QCD (any SM process) | `loop_sm` (or `-no_b_mass`) + `[QCD]` |
+| NLO QED or NLO EW | `loop_qcd_qed_sm` — **not in 3.5.15 LTS**, must be obtained separately |
 | MSSM study | `MSSM_SLHA2` |
 | Custom BSM | external UFO, imported by path |
 

@@ -3,16 +3,17 @@ name: madgraph
 description: Use when the user works with MadGraph (MG5_aMC@NLO) — writing or editing MG5 scripts (`.mg5`), generating Feynman diagrams, running LO event generation, or extracting a cross section from a completed MG run. Trigger keywords include "MadGraph", "mg5_aMC", "MG5_aMC@NLO", ".mg5 script", "proc_card.dat", "run_card.dat", "param_card.dat", "generate p p >", "import model", or requests to produce `.lhe` events for collider physics processes.
 ---
 
-# MadGraph (MG5_aMC@NLO 3.x) — LO workflows
+# MadGraph (MG5_aMC@NLO 3.x) — LO + fixed-order NLO workflows
 
-Helps author a single MG5 script, run LO event generation non-interactively, and read off cross sections.
+Helps author a single MG5 script, run LO or fixed-order NLO event generation non-interactively, and read off cross sections (including scale-variation envelopes for NLO).
 
 **Validated version**: MG 3.5.15 LTS. Patch-level 3.5.x should work; see `README.md` for compatibility caveats on other releases.
 
-Scope is deliberately narrow:
+Scope:
 
-- **In scope**: MG5_aMC 3.x, LO processes (including loop-induced via `[noborn=QCD]`), SM + arbitrary UFO BSM models, script authoring, non-interactive execution, cross-section extraction from banner/results files.
-- **Out of scope (v1)**: NLO (`[QCD]`, fixed-order, FKS), multi-jet merging (MLM/CKKW-L) details, parsing LHE/HepMC event files, detector-level analysis. If the user asks for these, say so and stop — do not improvise.
+- **In scope**: MG5_aMC 3.x, LO processes (including loop-induced via `[noborn=QCD]`), **fixed-order NLO QCD** (`[QCD]`, `[real=QCD]`, `[virt=QCD]`), SM + arbitrary UFO BSM models, script authoring, non-interactive execution, cross-section extraction from banner (LO) and `summary.txt` (NLO) including scale envelope.
+- **Documented but not verified in 3.5.15 LTS**: NLO QED (`[QED]`, `[QCD QED]`) — requires a loop_qcd_qed_sm-style UFO **not bundled** in LTS; syntax works, model ships separately.
+- **Out of scope (v1)**: NLO+PS matching (MC@NLO, `fixed_order=OFF` with `shower=PYTHIA8/HERWIG`), multi-jet merging (MLM/FxFx/UNLOPS), MadSpin-at-NLO decay chain insertion, parsing LHE/HepMC event files, detector-level analysis. If the user asks for these, say so and stop — do not improvise. `examples/NLO_example.md` describes the deferred items explicitly.
 
 ## Token economy — hard rules
 
@@ -133,6 +134,9 @@ Each run's exact script is archived at `Events/run_XX/inputs/script.mg5` alongsi
 - **Rerunning same process with different params**: start from the `rerun` block in `examples/LO_example.md`, edit `set` lines only.
 - **BSM / UFO model**: read `references/models.md` + the BSM block in `examples/LO_example.md`. Import the model, then use `display particles` / `display multiparticles` / `display couplings` **before** writing the process — do not guess particle labels.
 - **Loop-induced (e.g. `g g > h`)**: use `loop_sm` model and append `[noborn=QCD]` to the process line — still a LO observable. See the loop-induced block in `examples/LO_example.md`.
+- **Fixed-order NLO QCD** (`p p > X [QCD]`, parton level, no PS matching): requires `loop_sm` (or another loop-capable model). Use the `nlo` shortcut or explicit `fixed_order=ON shower=OFF` in the launch block. See `examples/NLO_example.md`. Xsec + err + scale envelope come from `Events/run_XX/summary.txt` (runs.py handles this automatically).
+- **K-factor (NLO/LO ratio)**: run both orders into the same work dir and compare via `scripts/runs.py --work-dir <path> --diff-vs baseline`. Each run carries `order: LO` or `order: NLO` in its entry.
+- **NLO+PS matching, FxFx merging, MadSpin at NLO, NLO QED**: out of v1 scope — see `examples/NLO_example.md` "Not covered" section, tell the user, stop.
 - **Parameter sweep / scan** (param_card keys only — masses, widths, couplings, BSM params): use MG's native `set <key> scan:[v1, v2, ...]` syntax. See `scan:[...]` in `references/script-syntax.md`. One `run_mg.py` invocation creates multiple `run_NN` directories (`mode: multi_run_scan`); follow up with `scripts/runs.py --work-dir <path> --diff-vs baseline` — each run carries a `scan_values` field with its actual scan-point coordinates. **Does not work for run_card keys** (`nevents`, `ebeam`, cuts, etc.) — sweep those by hand.
 - **Error during run**: do **not** Read the log. First check `errors_tail` from the run summary. Then `references/troubleshooting.md`. Only then Grep `log_path` with a narrow pattern.
 - **User wants Feynman diagrams only** (no xsec, no events): load `references/diagrams.md`. Different `.mg5` shape (no `launch`) and uses `scripts/make_diagrams.py`.

@@ -60,6 +60,13 @@ BANNER_NEVENTS = re.compile(r"Number of Events\s*:\s*(\d+)|(\d+)\s*=\s*nevents\b
 BANNER_SEED = re.compile(r"Seed\s*:\s*(\d+)|(\d+)\s*=\s*iseed\b")
 BANNER_RUN_TAG = re.compile(r"run_tag\s*:\s*(\S+)|(\S+)\s*=\s*run_tag\b")
 
+# NLO: xsec lives in Events/run_XX/summary.txt, not in banner.
+NLO_SUMMARY_XSEC = re.compile(
+    r"Total cross section:\s*"
+    r"([0-9.eE+\-]+)\s*\+-\s*([0-9.eE+\-]+)\s*(pb|fb|nb)?",
+    re.IGNORECASE,
+)
+
 MAX_ERROR_TAIL = 10
 
 
@@ -141,25 +148,33 @@ def list_new_runs(work_dir: Path, before: set[str]) -> list[Path]:
 
 
 def parse_banner(run_dir: Path) -> dict:
-    """Read *_banner.txt for authoritative xsec/nevents/run_tag/seed."""
+    """Read *_banner.txt (LO xsec + run metadata). For NLO runs, xsec lives
+    in Events/run_XX/summary.txt — override xsec/err from there when present."""
     out: dict = {}
     cands = sorted(run_dir.glob("*_banner.txt"))
-    if not cands:
-        return out
-    text = cands[-1].read_text()
-    for pat, key, cast in (
-        (BANNER_XSEC_PB, "xsec_pb", float),
-        (BANNER_XSEC_ERR_PB, "xsec_err_pb", float),
-        (BANNER_NEVENTS, "nevents", int),
-        (BANNER_SEED, "seed", int),
-        (BANNER_RUN_TAG, "run_tag", str),
-    ):
-        m = pat.search(text)
+    if cands:
+        text = cands[-1].read_text()
+        for pat, key, cast in (
+            (BANNER_XSEC_PB, "xsec_pb", float),
+            (BANNER_XSEC_ERR_PB, "xsec_err_pb", float),
+            (BANNER_NEVENTS, "nevents", int),
+            (BANNER_SEED, "seed", int),
+            (BANNER_RUN_TAG, "run_tag", str),
+        ):
+            m = pat.search(text)
+            if m:
+                value = next((g for g in m.groups() if g is not None), None)
+                if value is not None:
+                    out[key] = cast(value)
+    summary = run_dir / "summary.txt"
+    if summary.is_file():
+        m = NLO_SUMMARY_XSEC.search(summary.read_text())
         if m:
-            # patterns may have two alternative capture groups; pick whichever matched
-            value = next((g for g in m.groups() if g is not None), None)
-            if value is not None:
-                out[key] = cast(value)
+            unit = (m.group(3) or "pb").lower()
+            factor = {"pb": 1.0, "fb": 1e-3, "nb": 1e3}.get(unit, 1.0)
+            out["xsec_pb"] = float(m.group(1)) * factor
+            out["xsec_err_pb"] = float(m.group(2)) * factor
+            out["order"] = "NLO"
     return out
 
 

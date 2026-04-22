@@ -108,14 +108,26 @@ Where:
 
   Default is MG's auto-choice (minimal QED, maximal QCD). Always specify orders when your selection is non-default — MG prints what it chose otherwise.
 
-- **Bracketed modifier (optional)** — `[noborn=QCD]` marks a **loop-induced** process at LO. The tree amplitude would be zero (e.g., `g g > h` in SM), so the one-loop amplitude is squared at leading order.
+- **Bracketed modifier (optional)** — selects perturbative order beyond tree-level. All forms require a loop-capable model (`loop_sm` for SM).
 
+  | bracket | meaning |
+  |---|---|
+  | `[noborn=QCD]` | **Loop-induced LO**: tree amplitude vanishes (e.g. `g g > h` in SM), one-loop amplitude is squared at leading order. Still a LO observable. |
+  | `[QCD]` | **Full NLO QCD**: real + virtual QCD corrections. Produces NLO xsec + scale envelope. |
+  | `[real=QCD]` | NLO QCD real-emission part only. |
+  | `[virt=QCD]` | NLO QCD virtual part only (needs local subtraction, niche). |
+  | `[QED]` | NLO QED corrections. **Requires a QED-capable loop model** (e.g. `loop_qcd_qed_sm`) not bundled in 3.5.15 LTS. |
+  | `[QCD QED]` | Mixed NLO QCD+QED. Same model caveat. |
+
+  Examples:
   ```
   import model loop_sm
-  generate g g > h [noborn=QCD]
+  generate g g > h [noborn=QCD]     # loop-induced LO (Higgs via top loop)
+  generate p p > t t~ [QCD]         # NLO QCD ttbar
+  generate p p > e+ e- [real=QCD]   # real-emission only (W/Z+jet calibration)
   ```
 
-  Requires `loop_sm` (or another loop-compatible model). `[QCD]`/`[real=QCD]` are NLO — out of v1 scope.
+  `[QCD]` triggers MG's aMC@NLO machinery — see `references/output-and-launch.md` and `examples/NLO_example.md` for the launch flow. `run_mg.py` works transparently with both LO and NLO brackets.
 
 - **`add process`** — subsequent calls add another subprocess to the same output. Typical for multi-jet samples:
 

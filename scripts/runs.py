@@ -49,10 +49,54 @@ NEVENTS = re.compile(r"Number of Events\s*:\s*(\d+)|(\d+)\s*=\s*nevents\b")
 SEED = re.compile(r"Seed\s*:\s*(\d+)|(\d+)\s*=\s*iseed\b")
 RUN_TAG = re.compile(r"run_tag\s*:\s*(\S+)|(\S+)\s*=\s*run_tag\b")
 
+# NLO summary.txt — separate file (`Events/run_XX/summary.txt`), authoritative
+# for NLO xsec ± err (banner doesn't carry xsec for NLO runs).
+NLO_SUMMARY_XSEC = re.compile(
+    r"Total cross section:\s*"
+    r"([0-9.eE+\-]+)\s*\+-\s*([0-9.eE+\-]+)\s*(pb|fb|nb)?",
+    re.IGNORECASE,
+)
+NLO_SCALE_VAR = re.compile(
+    r"envelope of \d+ values\):\s*"
+    r"([0-9.eE+\-]+)\s*(pb|fb|nb)\s*\+([0-9.]+%)\s*-([0-9.]+%)",
+    re.IGNORECASE,
+)
+
 
 def find_banner(run_dir):
     cands = sorted(run_dir.glob("*_banner.txt"))
     return cands[-1] if cands else None
+
+
+def _unit_to_pb(value: float, unit) -> float:
+    return value * {"pb": 1.0, "fb": 1e-3, "nb": 1e3}.get((unit or "pb").lower(), 1.0)
+
+
+def parse_nlo_summary(path):
+    """Parse `Events/run_XX/summary.txt` for NLO runs.
+
+    Format (MG 3.5.x fixed-order NLO):
+        Total cross section: 1.811e+03 +- 7.6e+00 pb
+        Dynamical_scale_choice -1 (envelope of 9 values):
+            1.811e+03 pb  +5.7% -10.4%
+    """
+    out = {}
+    if not path.is_file():
+        return out
+    text = path.read_text()
+    m = NLO_SUMMARY_XSEC.search(text)
+    if m:
+        unit = m.group(3) or "pb"
+        out["xsec_pb"] = _unit_to_pb(float(m.group(1)), unit)
+        out["xsec_err_pb"] = _unit_to_pb(float(m.group(2)), unit)
+    m = NLO_SCALE_VAR.search(text)
+    if m:
+        out["scale_envelope"] = {
+            "central_pb": _unit_to_pb(float(m.group(1)), m.group(2)),
+            "plus_pct": m.group(3),
+            "minus_pct": m.group(4),
+        }
+    return out
 
 
 def parse_scan_file(scan_path):
@@ -128,7 +172,9 @@ def parse_banner(path):
 
 
 def summarize_run(run_dir):
-    """Return a dict for one run. banner + manifest fallback + script metadata."""
+    """Return a dict for one run. Tries NLO summary.txt first (authoritative
+    for NLO xsec), then banner (LO), then manifest fallback. Adds script metadata
+    from inputs/script.mg5 when present."""
     summary = {"run": run_dir.name, "run_dir": str(run_dir)}
 
     banner = find_banner(run_dir)
@@ -137,6 +183,18 @@ def summarize_run(run_dir):
         return summary
     summary["banner_path"] = str(banner)
     summary.update(parse_banner(banner))
+
+    # NLO: xsec/err live in summary.txt, not the banner. Override/fill here.
+    nlo_summary = run_dir / "summary.txt"
+    nlo_data = parse_nlo_summary(nlo_summary)
+    if nlo_data:
+        summary["summary_path"] = str(nlo_summary)
+        summary["order"] = "NLO"
+        # summary.txt takes priority for xsec/err (NLO authority)
+        for k, v in nlo_data.items():
+            summary[k] = v
+    elif "xsec_pb" in summary:
+        summary["order"] = "LO"
 
     manifest = read_manifest(run_dir)
     if "xsec_err_pb" not in summary:
