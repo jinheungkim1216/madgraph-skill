@@ -131,11 +131,17 @@ def parse_script(text):
 
 
 def compute_diff(baseline, other):
-    """Diff two parsed scripts. Returns dict with model_changed, process_changed, set_diff."""
+    """Diff two parsed scripts. Returns dict with model_changed, process_changed, set_diff.
+
+    A None on either side for model/process means that script didn't declare it —
+    typical for rerun-shape scripts that only have `launch` + `set` lines and
+    inherit model/process from the existing process directory. Only flag as
+    changed when BOTH sides declare a value and they differ.
+    """
     diff = {}
-    if baseline["model"] != other["model"]:
+    if baseline["model"] and other["model"] and baseline["model"] != other["model"]:
         diff["model_changed"] = {"from": baseline["model"], "to": other["model"]}
-    if baseline["process"] != other["process"]:
+    if baseline["process"] and other["process"] and baseline["process"] != other["process"]:
         diff["process_changed"] = {"from": baseline["process"], "to": other["process"]}
 
     base_sets = baseline["sets"]
