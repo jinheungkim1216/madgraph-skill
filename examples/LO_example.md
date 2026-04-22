@@ -226,7 +226,7 @@ Expected summary (approximate values):
 ### 4. Extract cross section from the run dir
 
 ```
-scripts/parse_xsec.py --run-dir mg_work/ttbar/Events/run_01
+scripts/runs.py --run-dir mg_work/ttbar/Events/run_01
 ```
 
 This reads only the banner file. Output matches `xsec_pb` / `xsec_err_pb` / `nevents` from step 3.

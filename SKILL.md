@@ -20,7 +20,7 @@ A single LO run emits 10k–100k lines of output. Keeping that out of the contex
 
 1. **Never invoke `mg5_aMC`, `bin/generate_events`, or MG Python modules directly through Bash.** Always go through `scripts/run_mg.py`. The wrapper redirects all stdout/stderr to a log file on disk and emits a ~20-line structured summary.
 2. **Never `Read`, `cat`, `head`, or `tail` the MG log file in full.** Log is typically 10k+ lines. To inspect, use `Grep` with a narrow pattern against the `log_path` returned by the wrapper, e.g. `Grep(pattern="ERROR|Fatal|Traceback", path=log_path, -C=2, head_limit=30)`.
-3. **Never Read LHE or HepMC event files.** They are MB–GB. For cross section use `scripts/parse_xsec.py`, which only reads the small banner and results files.
+3. **Never Read LHE or HepMC event files.** They are MB–GB. For cross section use `scripts/runs.py`, which only reads the small banner and results files.
 4. **Cache `detect_mg.py` output for the session.** Call it once per conversation; reuse the result.
 5. **If the user pastes a large MG log into the conversation**, do not re-read or quote it back. Ask them to save it to disk and Grep it.
 
@@ -38,7 +38,7 @@ Two script shapes per process:
 ## Typical workflow
 
 ```
-detect_mg.py  →  pick/write .mg5 script  →  run_mg.py  →  parse_xsec.py
+detect_mg.py  →  pick/write .mg5 script  →  run_mg.py  →  runs.py
 ```
 
 ### 1. Detect MG (once per session)
@@ -82,13 +82,20 @@ errors_tail: []
 warnings_count: 3
 ```
 
-### 4. Extract the cross section
+### 4. Extract the cross section (and compare runs)
 
+Single run:
 ```
-scripts/parse_xsec.py --run-dir mg_work/ttbar/Events/run_02
+scripts/runs.py --run-dir mg_work/ttbar/Events/run_02
 ```
 
-Returns `xsec_pb`, `xsec_err_pb`, `nevents`, `run_tag`, `seed`. Reads only small files.
+All runs in a work dir, with script-level diff vs the first run:
+```
+scripts/runs.py --work-dir mg_work/ttbar
+scripts/runs.py --work-dir mg_work/ttbar --runs run_01,run_02,run_03
+```
+
+Returns `xsec_pb`, `xsec_err_pb`, `nevents`, `run_tag`, `seed` per run (plus `set_diff` / `model_changed` / `process_changed` in multi-run mode). Reads only small files — never the `.lhe(.gz)`.
 
 ## Iteration pattern (multiple runs on one process dir)
 
@@ -141,5 +148,5 @@ All scripts are `uv run` single-file (PEP-723 inline metadata) — no separate v
 
 - `scripts/detect_mg.py` — locate MG, report version + extensions.
 - `scripts/run_mg.py` — non-interactive MG driver; log → disk, summary → stdout, archive + manifest per run.
-- `scripts/parse_xsec.py` — read xsec ± err + event count from banner/results.
+- `scripts/runs.py` — read xsec ± err + event count from one run (`--run-dir`), or compare all runs under a work dir with set-level diff (`--work-dir`). Reads banner + manifest only; never LHE.
 - `scripts/make_diagrams.py` — generate Feynman-diagram PDFs. When the user asks for diagrams (not events/xsec), see `references/diagrams.md` for the specialized `.mg5` shape and usage.

@@ -35,7 +35,7 @@ Developed and smoke-tested against **MG 3.5.15 LTS** with Python 3.10 on Linux. 
 
 One version-specific note: the 3.5.15 **LTS** distribution does **not** include the `heft` (Higgs effective theory) model, commonly referenced in tutorials. Full MG distributions have it. `sm` + `loop_sm` cover most LO physics without `heft`.
 
-If you hit a `set <key> <value>` failure or banner-parse issue on a non-3.5.15 MG, report the version — regexes in `parse_xsec.py` / `run_mg.py` may need loosening.
+If you hit a `set <key> <value>` failure or banner-parse issue on a non-3.5.15 MG, report the version — regexes in `runs.py` / `run_mg.py` may need loosening.
 
 ## Install as a Claude Code skill
 
@@ -74,7 +74,7 @@ Run:
 
 ```
 scripts/run_mg.py --script smoke.mg5
-scripts/parse_xsec.py --run-dir /tmp/smoke/Events/run_01
+scripts/runs.py --run-dir /tmp/smoke/Events/run_01
 ```
 
 Summary prints to stdout as JSON. The full MG log stays on disk.
@@ -96,7 +96,7 @@ references/
 scripts/
   detect_mg.py                  # MG locator + toolchain + extensions
   run_mg.py                     # non-interactive MG driver with archive + manifest
-  parse_xsec.py                 # banner + manifest → xsec summary
+  runs.py                       # single run summary OR multi-run compare with diff
   make_diagrams.py              # SubProcesses/P*/matrix*.ps → <work_dir>/diagrams/
 examples/
   LO_example.md                 # templated shapes + value catalog + ttbar walkthrough

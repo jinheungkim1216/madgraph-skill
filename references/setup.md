@@ -62,14 +62,14 @@ EOF
 
 scripts/detect_mg.py
 scripts/run_mg.py --script /tmp/skill_smoke.mg5
-scripts/parse_xsec.py --run-dir /tmp/mg_work/smoke/Events/run_01
+scripts/runs.py --run-dir /tmp/mg_work/smoke/Events/run_01
 ```
 
 Success criteria:
 
 - `detect_mg.py` prints a YAML block with `mg_root`, `version`, and extension status.
 - `run_mg.py` returns `status: ok`, a non-empty `xsec_pb`, and `script_archive: /tmp/mg_work/smoke/Events/run_01/inputs/script.mg5`.
-- `parse_xsec.py` echoes the same `xsec_pb` value.
+- `runs.py --run-dir …` echoes the same `xsec_pb` value.
 
 If `run_mg.py` fails, check `errors_tail` in its summary before touching the log — see SKILL.md token-economy rules. Never paste the MG log back into the conversation.
 

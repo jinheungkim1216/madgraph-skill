@@ -104,7 +104,7 @@ Events/run_XX/
     └── run_manifest.yaml               # mg version, cli args, sha256, xsec summary
 ```
 
-`parse_xsec.py` reads the banner + `summary.txt` / MG's `HTML/run_XX/results.html` only — never the `.lhe.gz`.
+`runs.py` reads the banner + `inputs/run_manifest.yaml` only — never the `.lhe.gz`.
 
 ## Multiple runs on one process directory
 
