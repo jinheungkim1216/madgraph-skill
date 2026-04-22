@@ -175,6 +175,48 @@ See `run-card.md` for full key list and `param-card.md` for particle-indexed set
 
 Values passed to `set` are validated by MG. Unknown keys produce an error; out-of-range values are warned.
 
+### `scan:[...]` — parameter sweep inside MG
+
+MG natively iterates a `set` value over a list of points, producing one run per point in **one** invocation:
+
+```
+launch mg_work/ttbar
+set mass 6 scan:[170, 172.5, 175]
+set nevents 10000
+0
+```
+
+Creates three consecutive `run_NN` directories. Each run's banner records the specific value used.
+
+**Only param_card keys support `scan:[...]`**. That includes masses, widths, couplings, CKM entries, BSM parameters — anything `run_card.md` would describe as living in `param_card.dat`. **Run_card keys (`nevents`, `ebeam`, `pdlabel`, cuts, …) do NOT support scan** — MG silently takes the literal string as the value and you get one run with garbage, not a sweep. To sweep a run_card key, either edit multiple scripts by hand or file it under a future `scan.py` helper.
+
+Multiple `scan:` lines in one `launch` block → **Cartesian product**:
+
+```
+launch mg_work/ttbar
+set mass 6 scan:[170, 172.5]
+set aewm1 scan:[130, 135]
+0
+```
+
+Produces 4 runs covering every (mass, aewm1) pair.
+
+Why use MG's native scan:
+
+- MG reuses phase-space grids across points — faster than independent `launch` calls.
+- Each run gets its own banner; scan summary goes to `Events/scan_run_*.txt` with a table of (run_name, param_values, xsec).
+
+### Interaction with the wrappers
+
+- `run_mg.py` detects the multiple new `run_NN` directories, switches its summary to `mode: multi_run_scan` with a `created_runs` list, and skips per-run xsec fields (single stdout can't cleanly attribute them to individual runs).
+- Follow up with:
+
+  ```
+  scripts/runs.py --work-dir <path> --diff-vs baseline
+  ```
+
+  For each scan-produced run, `runs.py` attaches a `scan_values` field (e.g. `{"sminputs#1": "1.35e+02"}`) by parsing `Events/scan_run_*.txt`. Combined with the per-run `xsec_pb` from banner, this gives the full scan table in one call.
+
 ## The terminating `0`
 
 Required at the end of every `launch` block. MG treats it as "I'm done editing cards, run". Without it MG blocks on interactive input — `run_mg.py` will time out or hang.

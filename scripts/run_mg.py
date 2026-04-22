@@ -120,6 +120,26 @@ def pick_latest_run_dir(work_dir: Path) -> Path | None:
     return runs[-1] if runs else None
 
 
+def snapshot_run_names(work_dir: Path) -> set[str]:
+    """Return the set of run_* directory names currently under work_dir/Events/."""
+    events = work_dir / "Events"
+    if not events.is_dir():
+        return set()
+    return {p.name for p in events.iterdir() if p.is_dir() and p.name.startswith("run_")}
+
+
+def list_new_runs(work_dir: Path, before: set[str]) -> list[Path]:
+    """Return new run_XX directories created since `before` snapshot, sorted by name."""
+    events = work_dir / "Events"
+    if not events.is_dir():
+        return []
+    new_names = sorted(
+        p.name for p in events.iterdir()
+        if p.is_dir() and p.name.startswith("run_") and p.name not in before
+    )
+    return [events / name for name in new_names]
+
+
 def parse_banner(run_dir: Path) -> dict:
     """Read *_banner.txt for authoritative xsec/nevents/run_tag/seed."""
     out: dict = {}
@@ -272,6 +292,7 @@ def main() -> int:
     mg5_aMC = mg_root / "bin" / "mg5_aMC"
     work_dir.mkdir(parents=True, exist_ok=True)
 
+    pre_runs = snapshot_run_names(work_dir)
     log_path = work_dir / "mg_run.log"
     started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     t0 = time.monotonic()
@@ -282,7 +303,38 @@ def main() -> int:
         return 130
     duration_s = round(time.monotonic() - t0, 1)
 
-    run_dir = pick_latest_run_dir(work_dir)
+    new_runs = list_new_runs(work_dir, pre_runs)
+
+    if len(new_runs) > 1:
+        # MG native scan (scan:[...] in script) produced multiple runs in one invocation.
+        # Archive the script to each new run's inputs/ but skip the per-run manifest
+        # (per-run xsec/err can't be attributed from a single stdout parse).
+        archive_paths = [archive_script(nr, script) for nr in new_runs]
+        status = "ok" if rc == 0 else ("timeout" if rc < 0 else "error")
+        multi_summary = {
+            "status": status,
+            "mode": "multi_run_scan",
+            "work_dir": str(work_dir),
+            "created_runs": [nr.name for nr in new_runs],
+            "run_count": len(new_runs),
+            "script_archives": [str(p) for p in archive_paths],
+            "log_path": str(log_path),
+            "log_size_lines": line_count,
+            "duration_s": duration_s,
+            "mg_returncode": rc,
+            "warnings_count": warnings,
+            "errors_tail": errors_tail,
+            "note": "Multiple runs created in one MG invocation (likely `scan:[...]`). "
+                    "Per-run xsec, nevents, etc. available via `scripts/runs.py --work-dir "
+                    f"{work_dir} --diff-vs baseline`.",
+        }
+        if wd_warnings:
+            multi_summary["wrapper_warnings"] = wd_warnings
+        emit(multi_summary)
+        return 0 if status == "ok" else 1
+
+    # Single-run path (the common case)
+    run_dir = new_runs[0] if new_runs else None
     if run_dir is not None:
         archive_path = archive_script(run_dir, script)
         # Banner is authoritative — backfill anything stdout regex missed.

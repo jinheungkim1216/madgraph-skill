@@ -55,6 +55,45 @@ def find_banner(run_dir):
     return cands[-1] if cands else None
 
 
+def parse_scan_file(scan_path):
+    """Parse MG scan_run_*.txt file.
+
+    Format:
+        #run_name   <param>   cross
+        run_04       1.3e+02  2.67e-02
+        run_05       1.35e+02 2.52e-02
+
+    Returns {run_name: {param_name: value, ...}}.
+    """
+    mapping = {}
+    lines = scan_path.read_text().splitlines()
+    if not lines:
+        return mapping
+    header = lines[0].lstrip("#").split()
+    if not header or header[0] != "run_name":
+        return mapping
+    for line in lines[1:]:
+        parts = line.split()
+        if len(parts) != len(header):
+            continue
+        row = dict(zip(header, parts))
+        run_name = row.pop("run_name")
+        row.pop("cross", None)  # redundant with banner's xsec_pb
+        mapping[run_name] = row
+    return mapping
+
+
+def collect_scan_data(work_dir):
+    """Merge all scan_run_*.txt files under work_dir/Events/."""
+    events = work_dir / "Events"
+    if not events.is_dir():
+        return {}
+    merged = {}
+    for scan_file in events.glob("scan_run_*.txt"):
+        merged.update(parse_scan_file(scan_file))
+    return merged
+
+
 def read_manifest(run_dir):
     """Return the parsed run_manifest.yaml dict if present, else {}."""
     mf = run_dir / "inputs" / "run_manifest.yaml"
@@ -233,6 +272,7 @@ def main():
     summaries = [summarize_run(rd) for rd in run_dirs]
     baseline = summaries[0]
     baseline_parsed = baseline.get("_script_parsed")
+    scan_data = collect_scan_data(work_dir)  # {run_name: {param: value, ...}} from scan_run_*.txt
 
     want_prev = args.diff_vs in ("previous", "both")
     want_base = args.diff_vs in ("baseline", "both")
@@ -240,6 +280,8 @@ def main():
     runs_output = []
     for i, s in enumerate(summaries):
         entry = {k: v for k, v in s.items() if not k.startswith("_")}
+        if s["run"] in scan_data:
+            entry["scan_values"] = scan_data[s["run"]]
         if i == 0:
             entry["baseline"] = True
             runs_output.append(entry)
