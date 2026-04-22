@@ -13,13 +13,23 @@ Modes:
       <run_dir>/inputs/run_manifest.yaml as fallback for xsec_err_pb
       (MG does not write MC error into the banner).
 
-  --work-dir <path>
-      Multi-run comparison: every <work_dir>/Events/run_* is read; the
-      first (by sort order) is the baseline, each subsequent run gets a
-      set-level diff against it (script.mg5 + model/process comparison).
+  --work-dir <path> [--runs A,B,C] [--diff-vs previous|baseline|both]
+      Multi-run comparison. Every <work_dir>/Events/run_* is read in
+      run-number order; run_01 (or the first after --runs filter) is
+      the baseline and gets `baseline: true`. Each subsequent run gets
+      a set-level script diff.
 
-  --work-dir <path> --runs run_01,run_02,run_03
-      Restrict to a subset.
+      --diff-vs previous   (default) diff each run against the one
+                           immediately before it — "what did I change
+                           in this step?"
+      --diff-vs baseline   diff each run against the first (run_01) —
+                           "how far have I drifted from the baseline?"
+      --diff-vs both       include both diffs per run.
+
+      Output key: `diff_vs_previous` and/or `diff_vs_baseline`, each
+      containing {against_run, set_diff, optional model_changed /
+      process_changed}. An empty set_diff means the scripts were
+      identical for that comparison.
 
 NEVER reads .lhe(.gz) event files. Output: compact JSON (valid YAML).
 """
@@ -130,8 +140,9 @@ def parse_script(text):
     return {"model": model, "process": process, "sets": sets}
 
 
-def compute_diff(baseline, other):
-    """Diff two parsed scripts. Returns dict with model_changed, process_changed, set_diff.
+def compute_diff(ref, other):
+    """Diff two parsed scripts. Returns dict with set_diff (always) and optional
+    model_changed / process_changed.
 
     A None on either side for model/process means that script didn't declare it —
     typical for rerun-shape scripts that only have `launch` + `set` lines and
@@ -139,22 +150,20 @@ def compute_diff(baseline, other):
     changed when BOTH sides declare a value and they differ.
     """
     diff = {}
-    if baseline["model"] and other["model"] and baseline["model"] != other["model"]:
-        diff["model_changed"] = {"from": baseline["model"], "to": other["model"]}
-    if baseline["process"] and other["process"] and baseline["process"] != other["process"]:
-        diff["process_changed"] = {"from": baseline["process"], "to": other["process"]}
+    if ref["model"] and other["model"] and ref["model"] != other["model"]:
+        diff["model_changed"] = {"from": ref["model"], "to": other["model"]}
+    if ref["process"] and other["process"] and ref["process"] != other["process"]:
+        diff["process_changed"] = {"from": ref["process"], "to": other["process"]}
 
-    base_sets = baseline["sets"]
+    ref_sets = ref["sets"]
     other_sets = other["sets"]
     set_diff = {}
-    all_keys = set(base_sets) | set(other_sets)
-    for k in sorted(all_keys):
-        bv = base_sets.get(k)
+    for k in sorted(set(ref_sets) | set(other_sets)):
+        rv = ref_sets.get(k)
         ov = other_sets.get(k)
-        if bv != ov:
-            set_diff[k] = {"from": bv, "to": ov}
-    if set_diff:
-        diff["set_diff"] = set_diff
+        if rv != ov:
+            set_diff[k] = {"from": rv, "to": ov}
+    diff["set_diff"] = set_diff  # always present — empty dict means identical scripts
     return diff
 
 
@@ -177,6 +186,12 @@ def main():
     g.add_argument("--run-dir", help="Path to a single Events/run_XX/")
     g.add_argument("--work-dir", help="Process directory; scans Events/run_*")
     p.add_argument("--runs", help="Comma-separated subset of run names (only with --work-dir)")
+    p.add_argument(
+        "--diff-vs", choices=["previous", "baseline", "both"], default="previous",
+        help="What to diff each run against in --work-dir mode: "
+             "previous (default, step-by-step delta), baseline (cumulative from run_01), "
+             "or both.",
+    )
     args = p.parse_args()
 
     if args.run_dir:
@@ -219,25 +234,53 @@ def main():
     baseline = summaries[0]
     baseline_parsed = baseline.get("_script_parsed")
 
+    want_prev = args.diff_vs in ("previous", "both")
+    want_base = args.diff_vs in ("baseline", "both")
+
     runs_output = []
     for i, s in enumerate(summaries):
         entry = {k: v for k, v in s.items() if not k.startswith("_")}
         if i == 0:
             entry["baseline"] = True
-        elif baseline_parsed and s.get("_script_parsed"):
-            diff = compute_diff(baseline_parsed, s["_script_parsed"])
-            if diff:
-                entry.update(diff)
-            else:
-                entry["set_diff"] = {}  # explicitly empty → runs had identical scripts
+            runs_output.append(entry)
+            continue
+
+        current_parsed = s.get("_script_parsed")
+        prev = summaries[i - 1]
+        prev_parsed = prev.get("_script_parsed")
+
+        if current_parsed is None:
+            entry["script_diff_unavailable"] = "script.mg5 missing in this run"
         else:
-            entry["script_diff_unavailable"] = "script.mg5 missing in one or both runs' inputs/"
+            if want_prev:
+                if prev_parsed is not None:
+                    entry["diff_vs_previous"] = {
+                        "against_run": prev["run"],
+                        **compute_diff(prev_parsed, current_parsed),
+                    }
+                else:
+                    entry["diff_vs_previous"] = {
+                        "against_run": prev["run"],
+                        "unavailable": f"script.mg5 missing in {prev['run']}",
+                    }
+            if want_base:
+                if baseline_parsed is not None:
+                    entry["diff_vs_baseline"] = {
+                        "against_run": baseline["run"],
+                        **compute_diff(baseline_parsed, current_parsed),
+                    }
+                else:
+                    entry["diff_vs_baseline"] = {
+                        "against_run": baseline["run"],
+                        "unavailable": f"script.mg5 missing in {baseline['run']}",
+                    }
         runs_output.append(entry)
 
     result = {
         "status": "ok",
         "work_dir": str(work_dir),
         "baseline": baseline["run"],
+        "diff_mode": args.diff_vs,
         "run_count": len(summaries),
         "runs": runs_output,
     }

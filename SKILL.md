@@ -89,13 +89,25 @@ Single run:
 scripts/runs.py --run-dir mg_work/ttbar/Events/run_02
 ```
 
-All runs in a work dir, with script-level diff vs the first run:
+All runs in a work dir, with script-level diff:
 ```
 scripts/runs.py --work-dir mg_work/ttbar
 scripts/runs.py --work-dir mg_work/ttbar --runs run_01,run_02,run_03
+scripts/runs.py --work-dir mg_work/ttbar --diff-vs baseline
+scripts/runs.py --work-dir mg_work/ttbar --diff-vs both
 ```
 
-Returns `xsec_pb`, `xsec_err_pb`, `nevents`, `run_tag`, `seed` per run (plus `set_diff` / `model_changed` / `process_changed` in multi-run mode). Reads only small files — never the `.lhe(.gz)`.
+Returns `xsec_pb`, `xsec_err_pb`, `nevents`, `run_tag`, `seed` per run. Multi-run mode also reports per-run `set_diff` (plus `model_changed` / `process_changed` when applicable). Reads only small files — never the `.lhe(.gz)`.
+
+**Diff modes** (`--diff-vs`):
+
+| value | meaning | use when |
+|---|---|---|
+| `previous` (default) | Each run diffed against the one immediately before it (step-by-step delta). | "What did I change in this iteration?" — the common case. |
+| `baseline` | Each run diffed against run_01 (cumulative drift from the first). | "How far has my setup drifted from the baseline?" |
+| `both` | Include both `diff_vs_previous` and `diff_vs_baseline` per run. | Debugging or reviewing an experiment series. |
+
+Output key: each non-baseline run carries `diff_vs_previous` and/or `diff_vs_baseline`, each containing `{against_run, set_diff, optional model_changed / process_changed}`. An empty `set_diff` means the two scripts were identical for that comparison.
 
 ## Iteration pattern (multiple runs on one process dir)
 
