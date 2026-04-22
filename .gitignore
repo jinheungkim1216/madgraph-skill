@@ -1,0 +1,24 @@
+# Local Claude Code config + Python venv
+.claude
+.venv
+
+# User scratch + MG artifacts (never commit)
+mg_scripts
+mg_work
+MG5_aMC_v*
+LTS_MG5aMC_*.tgz
+HEPTools
+py.py
+
+# Sandbox-denied dotfiles show as untracked character devices — ignore
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
