@@ -44,27 +44,71 @@ MAX_ERROR_TAIL = 10
 MAX_CONV_ERRORS_REPORTED = 10
 
 
+def load_env_file(path=None):
+    """Load KEY=VALUE lines from ./.env (or given path). Shell env wins —
+    never overwrites an existing variable. Returns absolute loaded path, or None."""
+    target = Path(path) if path else Path.cwd() / ".env"
+    if not target.is_file():
+        return None
+    for raw in target.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip(), value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        if key and key not in os.environ:
+            os.environ[key] = value
+    return str(target.resolve())
+
+
 def resolve_mg_root(cli_arg):
-    candidates = []
+    """Return (Path|None, searched: list[str])."""
+    searched = []
+
     if cli_arg:
-        candidates.append(Path(cli_arg))
+        p = Path(cli_arg)
+        if (p / "bin" / "mg5_aMC").is_file():
+            searched.append(f"--mg-root {cli_arg}: OK")
+            return p.resolve(), searched
+        searched.append(f"--mg-root {cli_arg}: bin/mg5_aMC not found (strict)")
+        return None, searched
+    searched.append("--mg-root: (not provided)")
+
     env = os.environ.get("MG5_HOME")
     if env:
-        candidates.append(Path(env))
+        p = Path(env)
+        if (p / "bin" / "mg5_aMC").is_file():
+            searched.append(f"$MG5_HOME={env}: OK")
+            return p.resolve(), searched
+        searched.append(f"$MG5_HOME={env}: bin/mg5_aMC not found")
+    else:
+        searched.append("$MG5_HOME: (unset)")
+
     which = shutil.which("mg5_aMC")
     if which:
-        candidates.append(Path(which).resolve().parent.parent)
-    for pattern in (
-        str(Path.cwd() / "MG5_aMC*/bin/mg5_aMC"),
-        str(Path.home() / "MG5_aMC*/bin/mg5_aMC"),
-        "/opt/MG5_aMC*/bin/mg5_aMC",
+        p = Path(which).resolve().parent.parent
+        if (p / "bin" / "mg5_aMC").is_file():
+            searched.append(f"PATH: {which} -> OK")
+            return p.resolve(), searched
+        searched.append(f"PATH: {which} -> parent layout mismatch")
+    else:
+        searched.append("PATH: mg5_aMC not on $PATH")
+
+    for label, pattern in (
+        ("CWD glob", str(Path.cwd() / "MG5_aMC*/bin/mg5_aMC")),
+        ("~ glob", str(Path.home() / "MG5_aMC*/bin/mg5_aMC")),
+        ("/opt glob", "/opt/MG5_aMC*/bin/mg5_aMC"),
     ):
-        for hit in glob.glob(pattern):
-            candidates.append(Path(hit).parent.parent)
-    for c in candidates:
-        if (c / "bin" / "mg5_aMC").is_file():
-            return c.resolve()
-    return None
+        hits = glob.glob(pattern)
+        if hits:
+            p = Path(hits[0]).parent.parent
+            searched.append(f"{label} {pattern}: {hits[0]}")
+            return p.resolve(), searched
+        searched.append(f"{label} {pattern}: no match")
+
+    return None, searched
 
 
 def extract_output_dir(script_text):
@@ -154,6 +198,7 @@ def main():
     p.add_argument("--timeout", type=int, default=None, help="Seconds before killing MG (script mode only)")
     args = p.parse_args()
 
+    env_file_loaded = load_env_file()
     mg_info: dict = {}
 
     if args.script:
@@ -173,10 +218,22 @@ def main():
             return 2
         work_dir = work_dir.resolve()
 
-        mg_root = resolve_mg_root(args.mg_root)
+        mg_root, searched = resolve_mg_root(args.mg_root)
         if mg_root is None:
-            emit({"status": "error",
-                  "reason": "MG not found. Set $MG5_HOME or pass --mg-root."})
+            remedies = [
+                "Install MG (if missing): see skills/madgraph/references/install.md",
+                "If already installed: export MG5_HOME=/abs/path/to/MG5_aMC_v3_5_xx",
+                "Or pass --mg-root /abs/path to make_diagrams.py explicitly",
+            ]
+            if env_file_loaded is None:
+                remedies.append("Or create ./.env with: MG5_HOME=/abs/path")
+            emit({
+                "status": "error",
+                "reason": "MG not found",
+                "env_file_loaded": env_file_loaded,
+                "searched": searched,
+                "remedies": remedies,
+            })
             return 2
 
         work_dir.mkdir(parents=True, exist_ok=True)

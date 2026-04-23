@@ -14,9 +14,9 @@ Everything else is inferred. How this variable is made available (shell session,
 
 ## How the skill locates MG
 
-`scripts/detect_mg.py` tries, in order:
+Before searching, the scripts load `./.env` (if present) — see "Project-local `.env` file" below. Then `scripts/detect_mg.py` tries, in order:
 
-1. `--mg-root <path>` CLI argument (explicit override).
+1. `--mg-root <path>` CLI argument (explicit override — **strict**: fails if the path doesn't contain `bin/mg5_aMC`, does NOT fall through).
 2. `$MG5_HOME` environment variable.
 3. `mg5_aMC` on `$PATH` (via `which`).
 4. Glob: `./MG5_aMC*/bin/mg5_aMC` relative to the **current working directory** (project-local installs — useful when the tarball is extracted inside the repo).
@@ -24,7 +24,21 @@ Everything else is inferred. How this variable is made available (shell session,
 
 The first successful hit wins. Call `detect_mg.py` once per session and cache its summary; it is not a cheap probe (inspects version, available extensions, compilers).
 
-If none of 1–5 resolve, the skill stops and points the user at `install.md`.
+If none of 1–5 resolve, the output carries a `searched` list showing every strategy tried and a `remedies` list with copy-pasteable commands. Point the user at `install.md` if MG is not yet installed.
+
+## Project-local `.env` file
+
+Instead of polluting your shell with `export MG5_HOME=...`, drop a `.env` file at the **current working directory** (usually your project root). The skill's wrappers load it automatically:
+
+```
+# ./.env  — add this to your project's .gitignore
+MG5_HOME=/abs/path/to/MG5_aMC_v3_5_15
+CCACHE_DISABLE=1        # NLO compile workaround if ccache tmp is read-only
+```
+
+Format: one `KEY=VALUE` per line; `#` comments allowed; optional matching `"` / `'` around values. **The shell environment always wins** — values already set in `os.environ` are never overridden, so your existing exports keep priority over `.env`.
+
+Output fields in detect_mg/run_mg/make_diagrams summaries include `env_file_loaded: <path>` when a `.env` was picked up; `null` otherwise.
 
 ## Work directory convention
 
