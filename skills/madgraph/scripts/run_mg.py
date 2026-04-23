@@ -48,7 +48,6 @@ XSEC_PATTERN = re.compile(
     r"\s*(pb|fb|nb)?"
 )
 NEVENTS_PATTERN = re.compile(r"Stored\s+(\d+)\s+events")
-RUN_DIR_PATTERN = re.compile(r"Events/(run_\d+)")
 ERROR_PATTERN = re.compile(r"(ERROR|FATAL|Traceback|Abort|command not recognized)", re.IGNORECASE)
 WARNING_PATTERN = re.compile(r"\bWARNING\b")
 
@@ -244,9 +243,6 @@ def run(
                 m_nev = NEVENTS_PATTERN.search(line)
                 if m_nev:
                     parsed["nevents"] = int(m_nev.group(1))
-                m_run = RUN_DIR_PATTERN.search(line)
-                if m_run:
-                    parsed["run_tag"] = m_run.group(1)
                 if timeout is not None and (time.monotonic() - start) > timeout:
                     proc.send_signal(signal.SIGTERM)
                     time.sleep(5)
@@ -365,6 +361,7 @@ def main() -> int:
 
     summary: dict = {
         "status": status,
+        "order": parsed.get("order"),
         "xsec_pb": parsed.get("xsec_pb"),
         "xsec_err_pb": parsed.get("xsec_err_pb"),
         "nevents": parsed.get("nevents"),

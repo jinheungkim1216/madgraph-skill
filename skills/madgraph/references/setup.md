@@ -24,7 +24,7 @@ Everything else is inferred. How this variable is made available (shell session,
 
 The first successful hit wins. Call `detect_mg.py` once per session and cache its summary; it is not a cheap probe (inspects version, available extensions, compilers).
 
-If none of 1–4 resolve, the skill stops and points the user at `install.md`.
+If none of 1–5 resolve, the skill stops and points the user at `install.md`.
 
 ## Work directory convention
 

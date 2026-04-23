@@ -251,7 +251,9 @@ set nevents 100000
 - `install <ext>` — install extensions from an interactive MG session, not from a run script.
 - `madspin` blocks — MadSpin decay insertion is supported but out of this skill's v1 scope.
 - `systematics` — inline systematic variations; possible but considered an advanced case; see MG docs if needed.
-- NLO brackets (`[QCD]`, `[real=QCD]`) — out of v1 scope.
+- NLO+PS matching (`fixed_order=OFF shower=PYTHIA8`) — out of v1. See `examples/NLO_example.md` for the supported fixed-order NLO flow.
+- FxFx / UNLOPS multi-jet NLO merging.
+- `[QED]` / `[QCD QED]` brackets — syntax is valid but needs a `loop_qcd_qed_sm`-class UFO not bundled in 3.5.15 LTS.
 
 ## Minimal complete example
 

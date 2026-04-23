@@ -157,7 +157,7 @@ Each run's exact script is archived at `Events/run_XX/inputs/script.mg5` alongsi
 ## Examples
 
 - `examples/LO_example.md` — templated `.mg5` shapes + value catalog + concrete snippets for non-obvious patterns + one ttbar worked walkthrough. This is where `.mg5` starter content lives.
-- `examples/NLO_example.md` — reserved slot for NLO workflows; stub only in v1.
+- `examples/NLO_example.md` — fixed-order NLO QCD: shape templates, value catalog, LHC13/14 NLO presets, K-factor workflow, tested DY walkthrough, and explicit "Not covered" list (MC@NLO, FxFx, NLO EW, etc.).
 
 ## Scripts
 

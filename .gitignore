@@ -2,6 +2,14 @@
 .claude
 .venv
 
+# Secrets / env
+.env
+.env.*
+*.key
+*.pem
+credentials*
+secrets*
+
 # User scratch + MG artifacts (never commit)
 mg_scripts
 mg_work

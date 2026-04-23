@@ -123,7 +123,7 @@ Different runs can have different `set` blocks; the banner of each run records w
 |---|---|
 | Single process, iterate params | one `mg_work/<proc>/` with many `Events/run_XX/` |
 | Multiple processes | one `mg_work/<proc>/` per process — do not share |
-| Parameter scan (same process, many points) | single `mg_work/<proc>/` is fine; MG's multi-run machinery could also be used but is out of v1 scope |
+| Parameter scan (same process, many points) | single `mg_work/<proc>/` — use MG native `set <key> scan:[v1, v2, ...]` in one launch block (param_card keys only). See `references/script-syntax.md` § `scan:[...]`. |
 
 Never `output` into repo root or into an already-existing unrelated directory — MG writes dozens of files at the target path.
 
