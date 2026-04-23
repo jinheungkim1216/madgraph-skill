@@ -2,6 +2,11 @@
 .claude
 .venv
 
+# Python bytecode
+__pycache__
+*.pyc
+*.pyo
+
 # Secrets / env
 .env
 .env.*
