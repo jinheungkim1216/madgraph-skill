@@ -36,7 +36,7 @@ MG5_HOME=/abs/path/to/MG5_aMC_v3_5_15
 CCACHE_DISABLE=1        # NLO compile workaround if ccache tmp is read-only
 ```
 
-Format: one `KEY=VALUE` per line; `#` comments allowed; optional matching `"` / `'` around values. **The shell environment always wins** — values already set in `os.environ` are never overridden, so your existing exports keep priority over `.env`.
+Format: one `KEY=VALUE` per line. A full-line `#` starts a comment; an unquoted inline `#` also starts a comment (`FOO=bar # note` → `FOO=bar`). Inside matching `"` / `'`, the `#` is preserved. **The shell environment always wins** — values already set in `os.environ` are never overridden, so your existing exports keep priority over `.env`.
 
 Output fields in detect_mg/run_mg/make_diagrams summaries include `env_file_loaded: <path>` when a `.env` was picked up; `null` otherwise.
 
@@ -81,7 +81,7 @@ scripts/runs.py --run-dir /tmp/mg_work/smoke/Events/run_01
 
 Success criteria:
 
-- `detect_mg.py` prints a YAML block with `mg_root`, `version`, and extension status.
+- `detect_mg.py` prints a JSON block with `mg_root`, `version`, and extension status.
 - `run_mg.py` returns `status: ok`, a non-empty `xsec_pb`, and `script_archive: /tmp/mg_work/smoke/Events/run_01/inputs/script.mg5`.
 - `runs.py --run-dir …` echoes the same `xsec_pb` value.
 
@@ -104,7 +104,9 @@ $MG5_HOME/bin/mg5_aMC /tmp/check.mg5 > /tmp/mg.log 2>&1
 
 ## Where `MG5_HOME` is NOT set
 
-If a user runs the skill without setting `MG5_HOME` and MG isn't on `PATH`, `detect_mg.py` will fall through all four resolution steps and report `status: not_found`. At that point:
+If a user runs the skill without setting `MG5_HOME` and MG isn't on `PATH`, `detect_mg.py` falls through all five resolution steps (`--mg-root`, `$MG5_HOME`, `$PATH`, CWD glob, `~`/`/opt` glob) and reports `status: not_found`. The output includes a `searched` array listing exactly which strategy was tried and why it failed, plus a `remedies` array with copy-pasteable fixes:
 
-- If MG is installed somewhere the user knows: export `MG5_HOME` or pass `--mg-root`.
-- If MG is not installed: read `install.md`.
+- Export `MG5_HOME=/abs/path` in your shell.
+- Pass `--mg-root /abs/path` to the wrapper.
+- Drop `MG5_HOME=/abs/path` into a `./.env` file in the project root.
+- Install MG itself (see `install.md`).

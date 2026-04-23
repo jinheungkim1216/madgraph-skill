@@ -67,20 +67,23 @@ Details on individual pieces: `references/script-syntax.md`, `references/models.
 scripts/run_mg.py --script path/to/my_run.mg5 [--timeout 3600]
 ```
 
-The wrapper returns a compact YAML summary — the full log stays on disk:
+The wrapper returns a compact JSON summary — the full log stays on disk:
 
-```yaml
-status: ok
-xsec_pb: 507.3
-xsec_err_pb: 0.8
-nevents: 10000
-run_dir: mg_work/ttbar/Events/run_02
-script_archive: mg_work/ttbar/Events/run_02/inputs/script.mg5
-log_path: mg_work/ttbar/mg_run.log
-log_size_lines: 24813
-duration_s: 142
-errors_tail: []
-warnings_count: 3
+```json
+{
+  "status": "ok",
+  "order": "LO",
+  "xsec_pb": 507.3,
+  "xsec_err_pb": 0.8,
+  "nevents": 10000,
+  "run_dir": "mg_work/ttbar/Events/run_02",
+  "script_archive": "mg_work/ttbar/Events/run_02/inputs/script.mg5",
+  "log_path": "mg_work/ttbar/mg_run.log",
+  "log_size_lines": 24813,
+  "duration_s": 142,
+  "errors_tail": [],
+  "warnings_count": 3
+}
 ```
 
 ### 4. Extract the cross section (and compare runs)
@@ -140,7 +143,7 @@ Each run's exact script is archived at `Events/run_XX/inputs/script.mg5` alongsi
 - **Parameter sweep / scan** (param_card keys only — masses, widths, couplings, BSM params): use MG's native `set <key> scan:[v1, v2, ...]` syntax. See `scan:[...]` in `references/script-syntax.md`. One `run_mg.py` invocation creates multiple `run_NN` directories (`mode: multi_run_scan`); follow up with `scripts/runs.py --work-dir <path> --diff-vs baseline` — each run carries a `scan_values` field with its actual scan-point coordinates. **Does not work for run_card keys** (`nevents`, `ebeam`, cuts, etc.) — sweep those by hand.
 - **Error during run**: do **not** Read the log. First check `errors_tail` from the run summary. Then `references/troubleshooting.md`. Only then Grep `log_path` with a narrow pattern.
 - **User wants Feynman diagrams only** (no xsec, no events): load `references/diagrams.md`. Different `.mg5` shape (no `launch`) and uses `scripts/make_diagrams.py`.
-- **User asks for NLO / MLM+PY8 merging details / LHE parsing / detector simulation**: out of v1 scope. For NLO specifically, `examples/NLO_example.md` is a reserved slot but has no content yet — tell the user and stop.
+- **User asks for MC@NLO matching / FxFx / MLM@NLO merging / MadSpin-at-NLO / LHE parsing / detector simulation**: out of v1 scope — tell the user and stop.
 
 ## References (load on demand)
 

@@ -81,8 +81,13 @@ def load_env_file(path=None):
             continue
         key, _, value = line.partition("=")
         key, value = key.strip(), value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-            value = value[1:-1]
+        if value.startswith(('"', "'")):
+            q = value[0]
+            end = value.find(q, 1)
+            if end >= 0:
+                value = value[1:end]
+        elif "#" in value:
+            value = value.split("#", 1)[0].rstrip()
         if key and key not in os.environ:
             os.environ[key] = value
     return str(target.resolve())

@@ -57,7 +57,7 @@ Convenience shortcuts (`nlo`, `aMC@NLO`, etc.) exist but set multiple switches a
 |---|---|---|
 | `loop_sm` | ✓ | `[QCD]`, `[noborn=QCD]` (loop-induced LO) |
 | `loop_sm-no_b_mass` | ✓ | as above, with m_b=0 (faster for non-b-tagged processes) |
-| `loop_qcd_qed_sm` | ✗ (separate download) | `[QCD]`, `[QED]`, `[QCD QED]`, `[QCD QED QED]` |
+| `loop_qcd_qed_sm` | ✗ (separate download from [MG5_aMC website](https://launchpad.net/mg5amcnlo), drop into `$MG5_HOME/models/loop_qcd_qed_sm/`) | `[QCD]`, `[QED]`, `[QCD QED]`, `[QCD QED QED]` |
 | UFO@NLO BSM | user-supplied | BSM NLO — depends on model |
 
 ### `<CORRECTION>` values
@@ -90,9 +90,8 @@ Drop into the `<SET_BLOCK>` slot.
 #### LHC13 NLO default
 
 ```
+set lhc 13
 set nevents 10000
-set ebeam1 6500
-set ebeam2 6500
 set pdlabel lhapdf
 set lhaid 303400              # NNPDF31_nnlo_as_0118 — prefer NNLO-evolved PDFs for NLO runs
 set req_acc -1
@@ -101,18 +100,16 @@ set req_acc -1
 #### LHC13 NLO quick (smoke test)
 
 ```
+set lhc 13
 set nevents 1000
-set ebeam1 6500
-set ebeam2 6500
 set req_acc 0.05              # coarser accuracy → much faster
 ```
 
 #### LHC14 NLO default
 
 ```
+set lhc 14
 set nevents 10000
-set ebeam1 7000
-set ebeam2 7000
 set pdlabel lhapdf
 set lhaid 303400
 set req_acc -1
@@ -141,7 +138,7 @@ set etaj 5.0
 
 ## Concrete snippet — NLO QCD Drell–Yan (tested)
 
-This is the first NLO run-through verified end-to-end on MG 3.5.15 LTS. Full walkthrough in the next section.
+Verified end-to-end on MG 3.5.15 LTS. Full walkthrough at the end of this doc.
 
 ```
 import model loop_sm
@@ -153,62 +150,69 @@ shower=OFF
 madspin=OFF
 reweight=OFF
 madanalysis=OFF
+set lhc 13
 set nevents 1000
-set ebeam1 6500
-set ebeam2 6500
 set mll 50
 set req_acc 0.05
 0
 ```
 
+Note on `output`: at NLO the `madevent` keyword is **omitted** — MG auto-selects the aMC@NLO template from the `[QCD]` bracket. Writing `output madevent` at NLO works but is treated the same. Contrast with LO where `output madevent <dir>` is the conventional form (see `examples/LO_example.md`).
+
 ## K-factor workflow (NLO/LO comparison)
 
-One of the most common NLO questions: "what's the K-factor for this process?" Use the same work dir for both LO and NLO runs, then compare.
+K-factor = σ_NLO / σ_LO. Because `[QCD]` changes the generated Fortran, **LO and NLO must live in separate process directories** — there is no way to share one `mg_work/<proc>/` between the two orders. The workflow is therefore two independent runs plus a manual division.
+
+**Important**: for a meaningful K-factor, use **matched PDF families** on both sides (e.g. `NNPDF31_lo_as_0118` for LO, `NNPDF31_nnlo_as_0118` for NLO). Mixing an LO-evolved set with an NNLO-evolved set inflates the ratio by PDF evolution effects that have nothing to do with the fixed-order correction.
+
+### 1. LO baseline (its own work dir)
 
 ```
-# 1. LO baseline (run_01)
-#    base.mg5:
+# dy_lo.mg5
 import model sm
 generate p p > e+ e-
-output mg_work/dy_both
-launch mg_work/dy_both
+output madevent mg_work/dy_lo
+launch mg_work/dy_lo
 shower=OFF
 detector=OFF
+set lhc 13
 set nevents 10000
-set ebeam 6500
 set mll 50
+set pdlabel lhapdf
+set lhaid 260000              # NNPDF31_lo_as_0118 — LO-evolved
 0
 ```
 
+### 2. NLO (separate work dir)
+
 ```
-# 2. NLO on the SAME work dir — but NLO needs a different process directory
-#    because [QCD] changes the generated code. So use a DIFFERENT work_dir:
-#    base_nlo.mg5:
+# dy_nlo.mg5
 import model loop_sm
 generate p p > e+ e- [QCD]
-output mg_work/dy_both_nlo
-launch mg_work/dy_both_nlo
+output mg_work/dy_nlo
+launch mg_work/dy_nlo
 fixed_order=ON
 shower=OFF
 madspin=OFF
 reweight=OFF
 madanalysis=OFF
+set lhc 13
 set nevents 10000
-set ebeam 6500
 set mll 50
+set pdlabel lhapdf
+set lhaid 303400              # NNPDF31_nnlo_as_0118 — NNLO-evolved (matched family)
 set req_acc -1
 0
 ```
 
+### 3. Read both and divide
+
 ```
-# 3. Read both results manually (LO from one work dir, NLO from the other)
-scripts/runs.py --run-dir mg_work/dy_both/Events/run_01
-scripts/runs.py --run-dir mg_work/dy_both_nlo/Events/run_01
+scripts/runs.py --run-dir mg_work/dy_lo/Events/run_01
+scripts/runs.py --run-dir mg_work/dy_nlo/Events/run_01
 ```
 
-The NLO summary entry will include `order: NLO` + `scale_envelope`. Divide xsec values for the K-factor.
-
-**Why two work dirs**: `[QCD]` vs no bracket generate different Fortran code, so the process directories are incompatible. Unlike LO iteration (which reuses one process dir for many runs), LO↔NLO comparison needs two dirs.
+Each entry carries `order: LO` / `order: NLO` + its own `xsec_pb`; `scale_envelope` appears on the NLO side. K-factor = `xsec_pb_nlo / xsec_pb_lo`.
 
 ## Worked walkthrough — p p > e+ e- [QCD] at LHC13
 
@@ -235,8 +239,8 @@ shower=OFF
 madspin=OFF
 reweight=OFF
 madanalysis=OFF
+set lhc 13
 set nevents 1000
-set ebeam 6500
 set mll 50
 set req_acc 0.05
 0
