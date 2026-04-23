@@ -39,14 +39,44 @@ If you hit a `set <key> <value>` failure or banner-parse issue on a non-3.5.15 M
 
 ## Install as a Claude Code skill
 
-User-level:
+Two options. Both make `madgraph` appear in the available-skills list after restarting Claude Code.
+
+### Option A — Claude Code plugin (recommended)
+
+One command inside Claude Code:
 
 ```
-mkdir -p ~/.claude/skills
-ln -s /abs/path/to/madgraph-skill ~/.claude/skills/madgraph
+/plugin install https://github.com/<your-github-user>/madgraph-skill
 ```
 
-Restart the Claude Code session; `madgraph` will appear in the available-skills list.
+Claude Code reads `.claude-plugin/plugin.json` from the repo root and registers the bundled skill under `skills/madgraph/`. Pulling upstream changes: `/plugin update madgraph`.
+
+### Option B — Manual (no marketplace)
+
+Clone the repo and expose just the skill directory at the standard user-level path:
+
+```
+git clone https://github.com/<your-github-user>/madgraph-skill /tmp/madgraph-skill
+ln -s /tmp/madgraph-skill/skills/madgraph ~/.claude/skills/madgraph
+```
+
+Or project-local (skill active only inside one repo):
+
+```
+ln -s /tmp/madgraph-skill/skills/madgraph <your-project>/.claude/skills/madgraph
+```
+
+Restart the Claude Code session after either option.
+
+## Post-install
+
+Point the skill at an MG install by setting `MG5_HOME` (see `skills/madgraph/references/install.md` for how to install MG itself):
+
+```
+export MG5_HOME=/abs/path/to/MG5_aMC_v3_5_15
+```
+
+Verify from within Claude Code — ask something like "check that MadGraph is ready" and the skill should run `detect_mg.py`, reporting version, toolchain, and whether the Python `six` module is available.
 
 ## Quick usage
 
@@ -70,37 +100,45 @@ set nevents 100
 0
 ```
 
-Run:
+Run (from inside Claude Code, just ask the skill to execute the script — it resolves the path internally). For direct shell use:
 
 ```
-scripts/run_mg.py --script smoke.mg5
-scripts/runs.py --run-dir /tmp/smoke/Events/run_01
+# If installed as a plugin:
+~/.claude/plugins/.../skills/madgraph/scripts/run_mg.py --script smoke.mg5
+
+# If symlinked at ~/.claude/skills/madgraph:
+~/.claude/skills/madgraph/scripts/run_mg.py --script smoke.mg5
+~/.claude/skills/madgraph/scripts/runs.py --run-dir /tmp/smoke/Events/run_01
 ```
 
-Summary prints to stdout as JSON. The full MG log stays on disk.
+In practice you don't type these yourself — let Claude invoke them. Summary prints to stdout as JSON, and the full MG log stays on disk.
 
 ## Layout
 
 ```
-SKILL.md                        # skill entrypoint (LLM-facing)
-references/
-  install.md                    # one-time MG install
-  setup.md                      # how the skill finds MG
-  script-syntax.md              # .mg5 grammar (import/define/generate/output/launch/set)
-  models.md                     # built-in + UFO models, introspection
-  run-card.md                   # run_card.dat keys accessible via `set`
-  param-card.md                 # masses, widths, compute_widths
-  output-and-launch.md          # output/launch internals, shower=OFF pattern
-  troubleshooting.md            # common error messages → cause/fix
-  diagrams.md                   # Feynman-diagram PDFs (load on demand)
-scripts/
-  detect_mg.py                  # MG locator + toolchain + extensions
-  run_mg.py                     # non-interactive MG driver with archive + manifest
-  runs.py                       # single run summary OR multi-run compare with diff
-  make_diagrams.py              # SubProcesses/P*/matrix*.ps → <work_dir>/diagrams/
-examples/
-  LO_example.md                 # templated shapes + value catalog + ttbar walkthrough
-  NLO_example.md                # reserved (stub)
+.claude-plugin/plugin.json      # Claude Code plugin manifest (enables /plugin install)
+README.md                       # this file
+skills/
+  madgraph/                     # the skill itself
+    SKILL.md                    # skill entrypoint (LLM-facing)
+    references/
+      install.md                # one-time MG install
+      setup.md                  # how the skill finds MG (MG5_HOME + fallbacks)
+      script-syntax.md          # .mg5 grammar, NLO brackets, scan:[...]
+      models.md                 # built-in + UFO models, introspection
+      run-card.md               # run_card.dat keys + NLO-only keys
+      param-card.md             # masses, widths, compute_widths
+      output-and-launch.md      # output/launch internals, NLO launch flow
+      troubleshooting.md        # common error messages → cause/fix
+      diagrams.md               # Feynman-diagram PDFs (load on demand)
+    scripts/
+      detect_mg.py              # MG locator + toolchain + six check
+      run_mg.py                 # non-interactive MG driver + archive + manifest
+      runs.py                   # single-run xsec or multi-run compare with diff
+      make_diagrams.py          # SubProcesses/P*/matrix*.ps → <work_dir>/diagrams/
+    examples/
+      LO_example.md             # templated shapes + value catalog + ttbar walkthrough
+      NLO_example.md            # fixed-order NLO QCD workflow + K-factor recipe
 ```
 
 ## Design notes

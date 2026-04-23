@@ -1,0 +1,8 @@
+{
+  "name": "madgraph",
+  "version": "0.1.0",
+  "description": "Claude Code skill for driving MadGraph5_aMC@NLO (LO + fixed-order NLO QCD) without flooding the context window. All MG stdout/stderr goes to disk; the LLM receives only compact JSON summaries.",
+  "author": {
+    "name": "Jinheung Kim"
+  }
+}
