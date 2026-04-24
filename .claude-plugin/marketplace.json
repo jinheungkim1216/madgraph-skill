@@ -1,0 +1,13 @@
+{
+  "name": "madgraph-skill",
+  "owner": {
+    "name": "Jinheung Kim"
+  },
+  "plugins": [
+    {
+      "name": "madgraph",
+      "source": "./",
+      "description": "LO + fixed-order NLO MadGraph workflows for Claude Code. MG stdout/stderr redirected to disk; LLM receives only compact JSON summaries. Ships scripts for MG detection, non-interactive driver with per-run archive, xsec extraction + multi-run compare, Feynman-diagram PDFs."
+    }
+  ]
+}

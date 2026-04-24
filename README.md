@@ -43,20 +43,21 @@ Two options. Both make `madgraph` appear in the available-skills list after rest
 
 ### Option A — Claude Code plugin (recommended)
 
-One command inside Claude Code:
+Two commands inside Claude Code:
 
 ```
-/plugin install https://github.com/<your-github-user>/madgraph-skill
+/plugin marketplace add jinheungkim1216/madgraph-skill
+/plugin install madgraph@madgraph-skill
 ```
 
-Claude Code reads `.claude-plugin/plugin.json` from the repo root and registers the bundled skill under `skills/madgraph/`. Pulling upstream changes: `/plugin update madgraph`.
+The first command registers the GitHub repo as a (single-plugin) marketplace via its `.claude-plugin/marketplace.json`; the second installs the `madgraph` plugin from it. Claude Code then picks up `skills/madgraph/SKILL.md` automatically. Pull upstream changes with `/plugin marketplace update madgraph-skill`.
 
-### Option B — Manual (no marketplace)
+### Option B — Manual (no marketplace dance)
 
 Clone the repo and expose just the skill directory at the standard user-level path:
 
 ```
-git clone https://github.com/<your-github-user>/madgraph-skill /tmp/madgraph-skill
+git clone https://github.com/jinheungkim1216/madgraph-skill /tmp/madgraph-skill
 ln -s /tmp/madgraph-skill/skills/madgraph ~/.claude/skills/madgraph
 ```
 
